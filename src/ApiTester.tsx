@@ -1,6 +1,31 @@
 import { useState } from 'react'
+import axios from 'axios'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+
+// Helper to parse cookies string into array of { key, value }
+function parseCookies(cookieString: string) {
+    return cookieString
+        .split(';')
+        .map(cookie => cookie.trim())
+        .filter(Boolean)
+        .map(cookie => {
+            const [key, ...rest] = cookie.split('=')
+            return { key, value: rest.join('=') }
+        })
+}
+
+// Helper to parse localStorage into array of { key, value }
+function parseLocalStorage() {
+    const items = []
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key) {
+            items.push({ key, value: localStorage.getItem(key) ?? '' })
+        }
+    }
+    return items
+}
 
 export default function ApiTester() {
     const [method, setMethod] = useState<'GET' | 'POST' | 'PUT' | 'DELETE'>('GET')
@@ -12,18 +37,32 @@ export default function ApiTester() {
 
     const handleSend = async () => {
         try {
-            const res = await fetch(`${API_BASE_URL}${endpoint}`, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                ...(method !== 'GET' && method !== 'DELETE' ? { body } : {}),
-                credentials: 'include',
-            })
-            const text = await res.text()
-            setResponse(text)
+            const url = `${API_BASE_URL}${endpoint}`
+            let res
+            if (method === 'GET' || method === 'DELETE') {
+                res = await axios({
+                    url,
+                    method,
+                    withCredentials: true,
+                })
+            } else {
+                res = await axios({
+                    url,
+                    method,
+                    data: body ? JSON.parse(body) : undefined,
+                    headers: { 'Content-Type': 'application/json' },
+                    withCredentials: true,
+                })
+            }
+            setResponse(typeof res.data === 'string' ? res.data : JSON.stringify(res.data, null, 2))
             setCookies(document.cookie)
             setLocalStorageData(JSON.stringify(localStorage, null, 2))
-        } catch (e) {
-            setResponse(String(e))
+        } catch (e: any) {
+            if (e.response) {
+                setResponse(typeof e.response.data === 'string' ? e.response.data : JSON.stringify(e.response.data, null, 2))
+            } else {
+                setResponse(String(e))
+            }
         }
     }
 
@@ -69,11 +108,53 @@ export default function ApiTester() {
             </div>
             <div>
                 <h3 className="text-lg font-semibold text-gray-700 mt-6 mb-2">Cookies</h3>
-                <pre className="bg-gray-100 border border-gray-200 rounded-md p-4 overflow-x-auto text-sm text-gray-800 font-mono">{cookies}</pre>
+                <table className="min-w-full bg-gray-50 border border-gray-200 rounded-md text-sm font-mono">
+                    <thead>
+                        <tr>
+                            <th className="px-3 py-2 border-b text-left">Key</th>
+                            <th className="px-3 py-2 border-b text-left">Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {parseCookies(cookies).length === 0 ? (
+                            <tr>
+                                <td className="px-3 py-2 text-gray-400" colSpan={2}>No cookies</td>
+                            </tr>
+                        ) : (
+                            parseCookies(cookies).map(({ key, value }) => (
+                                <tr key={key}>
+                                    <td className="px-3 py-2 border-b">{key}</td>
+                                    <td className="px-3 py-2 border-b break-all">{value}</td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
             </div>
             <div>
                 <h3 className="text-lg font-semibold text-gray-700 mt-6 mb-2">LocalStorage</h3>
-                <pre className="bg-gray-100 border border-gray-200 rounded-md p-4 overflow-x-auto text-sm text-gray-800 font-mono">{localStorageData}</pre>
+                <table className="min-w-full bg-gray-50 border border-gray-200 rounded-md text-sm font-mono">
+                    <thead>
+                        <tr>
+                            <th className="px-3 py-2 border-b text-left">Key</th>
+                            <th className="px-3 py-2 border-b text-left">Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {parseLocalStorage().length === 0 ? (
+                            <tr>
+                                <td className="px-3 py-2 text-gray-400" colSpan={2}>No localStorage data</td>
+                            </tr>
+                        ) : (
+                            parseLocalStorage().map(({ key, value }) => (
+                                <tr key={key}>
+                                    <td className="px-3 py-2 border-b">{key}</td>
+                                    <td className="px-3 py-2 border-b break-all">{value}</td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
             </div>
         </div>
     )
