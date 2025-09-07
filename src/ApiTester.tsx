@@ -33,7 +33,6 @@ export default function ApiTester() {
     const [body, setBody] = useState('{}')
     const [response, setResponse] = useState('')
     const [cookies, setCookies] = useState(document.cookie)
-    const [localStorageData, setLocalStorageData] = useState(JSON.stringify(localStorage, null, 2))
 
     const handleSend = async () => {
         try {
@@ -56,7 +55,6 @@ export default function ApiTester() {
             }
             setResponse(typeof res.data === 'string' ? res.data : JSON.stringify(res.data, null, 2))
             setCookies(document.cookie)
-            setLocalStorageData(JSON.stringify(localStorage, null, 2))
         } catch (e: any) {
             if (e.response) {
                 setResponse(typeof e.response.data === 'string' ? e.response.data : JSON.stringify(e.response.data, null, 2))
